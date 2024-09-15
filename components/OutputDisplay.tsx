@@ -13,6 +13,25 @@ interface OutputDisplayProps {
 }
 
 export default function OutputDisplay({ image }: OutputDisplayProps) {
+  const handleDownload = async () => {
+    if (image) {
+      try {
+        const response = await fetch(image.public_url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = image.filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading image:', error);
+      }
+    }
+  };
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">Output</h2>
@@ -30,7 +49,7 @@ export default function OutputDisplay({ image }: OutputDisplayProps) {
         </div>
       )}
       <div className="mt-4 flex space-x-2">
-        <Button variant="outline" disabled={!image}>Download</Button>
+        <Button variant="outline" disabled={!image} onClick={handleDownload}>Download</Button>
         <Button variant="outline" disabled={!image}>Copy Prompt</Button>
         <Button variant="outline" disabled={!image}>Use as Input</Button>
       </div>
