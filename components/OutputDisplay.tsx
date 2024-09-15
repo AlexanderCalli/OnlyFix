@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { Button } from "@/components/ui/button"
 
 interface GeneratedImage {
@@ -26,8 +27,8 @@ export default function OutputDisplay({ image }: OutputDisplayProps) {
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('Error downloading image:', error);
+      } catch (error: unknown) {
+        console.error('Error downloading image:', error instanceof Error ? error.message : String(error));
       }
     }
   };
@@ -37,7 +38,14 @@ export default function OutputDisplay({ image }: OutputDisplayProps) {
       <h2 className="text-xl font-semibold mb-4">Output</h2>
       <div className="bg-gray-100 p-4 rounded min-h-[300px] flex items-center justify-center">
         {image ? (
-          <img src={image.public_url} alt="Generated" className="max-w-full max-h-full" />
+          <div className="relative w-full h-[300px]">
+            <Image
+              src={image.public_url}
+              alt="Generated"
+              fill
+              style={{ objectFit: 'contain' }}
+            />
+          </div>
         ) : (
           <p className="text-gray-500">Generated image will appear here</p>
         )}
