@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { GeneratedImage } from '@/types';
@@ -10,7 +10,7 @@ export default function ExamplesSection() {
   const offsetRef = useRef(0);
   const initialLoadDone = useRef(false);
 
-  const fetchRandomImages = async () => {
+  const fetchRandomImages = useCallback(async () => {
     if (isLoading) return;
     setIsLoading(true);
     const { data, error } = await supabase
@@ -40,14 +40,14 @@ export default function ExamplesSection() {
       offsetRef.current += data.length;
     }
     setIsLoading(false);
-  };
+  }, [isLoading]);
 
   useEffect(() => {
     if (!initialLoadDone.current) {
       fetchRandomImages();
       initialLoadDone.current = true;
     }
-  }, []);
+  }, [fetchRandomImages]);
 
   const handleLoadMore = () => {
     fetchRandomImages();

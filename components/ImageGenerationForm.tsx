@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
@@ -23,6 +23,28 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
   const [isLoading, setIsLoading] = useState(false);
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
+  const handleNewImage = useCallback((payload: { new: Record<string, unknown> }) => {
+    console.log('New image received:', payload);
+    const newImage = payload.new;
+    const image: GeneratedImage = {
+      id: newImage.id as string,
+      filename: newImage.filename as string,
+      prompt: newImage.prompt as string,
+      storage_path: newImage.storage_path as string,
+      width: newImage.width as number,
+      height: newImage.height as number,
+      created_at: newImage.created_at as string,
+      public_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${newImage.storage_path as string}`
+    };
+    console.log('Processed image:', image);
+    onImageGenerated(image);
+    setIsLoading(false);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      setTimeoutId(null);
+    }
+  }, [onImageGenerated, timeoutId]);
+
   useEffect(() => {
     console.log('Setting up Supabase subscription');
     const channel = supabase
@@ -36,29 +58,7 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
       console.log('Cleaning up Supabase subscription');
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  const handleNewImage = async (payload: any) => {
-    console.log('New image received:', payload);
-    const newImage = payload.new;
-    const image: GeneratedImage = {
-      id: newImage.id,
-      filename: newImage.filename,
-      prompt: newImage.prompt,
-      storage_path: newImage.storage_path,
-      width: newImage.width,
-      height: newImage.height,
-      created_at: newImage.created_at,
-      public_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${newImage.storage_path}`
-    };
-    console.log('Processed image:', image);
-    onImageGenerated(image);
-    setIsLoading(false);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      setTimeoutId(null);
-    }
-  };
+  }, [handleNewImage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
