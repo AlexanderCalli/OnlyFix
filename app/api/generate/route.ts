@@ -2,36 +2,19 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   const body = await request.json();
-
   const apiUrl = process.env.API_URL || 'http://localhost:5000';
 
-  try {
-    const response = await fetch(`${apiUrl}/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...body,
-        mode: body.mode
-      }),
-    });
+  // Immediately return a response
+  const response = NextResponse.json({ message: 'Image generation started' });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+  // Trigger image generation asynchronously
+  fetch(`${apiUrl}/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  }).catch(error => console.error('Error triggering image generation:', error));
 
-    const data = await response.json();
-
-    // If the mode is 'online', we don't wait for the image to be generated
-    if (body.mode === 'online') {
-      return NextResponse.json({ message: 'Image generation started' });
-    }
-
-    // For 'local' mode, we return the generated image data
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('Error generating image:', error);
-    return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 });
-  }
+  return response;
 }

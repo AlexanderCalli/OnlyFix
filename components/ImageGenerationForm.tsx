@@ -89,22 +89,9 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
       }
 
       console.log('Image generation triggered successfully');
+      setIsWaiting(true);
+      pollForImage(prompt, requestTimestamp);
 
-      if (generationMode === 'online') {
-        setIsWaiting(true);
-        pollForImage(prompt, requestTimestamp);
-      } else {
-        // Local mode logic remains unchanged
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        const latestImage = await fetchLatestImage();
-        if (latestImage) {
-          console.log('Latest image fetched:', latestImage);
-          onImageGenerated(latestImage);
-        } else {
-          console.log('No image found after generation');
-        }
-        setIsLoading(false);
-      }
     } catch (error) {
       console.error('Error generating image:', error);
       setIsLoading(false);
@@ -114,7 +101,7 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
 
   const pollForImage = async (prompt: string, requestTimestamp: string) => {
     const pollInterval = 10000; // 10 seconds
-    const maxAttempts = 12; // Try for 2 minutes (12 * 10 seconds)
+    const maxAttempts = 36; // Try for 6 minutes (36 * 10 seconds)
     let attempts = 0;
 
     const checkForImage = async () => {
