@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { GeneratedImage } from '@/types/index'
 import { supabase } from '@/lib/supabaseClient';
 
@@ -21,7 +22,8 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
   const [guidance, setGuidance] = useState(7.5);
   const [seed, setSeed] = useState(42);
   const [isLoading, setIsLoading] = useState(false);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [generationMode, setGenerationMode] = useState<'local' | 'online'>('local');
 
   const handleNewImage = useCallback((payload: { new: Record<string, unknown> }) => {
     console.log('New image received:', payload);
@@ -39,11 +41,8 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
     console.log('Processed image:', image);
     onImageGenerated(image);
     setIsLoading(false);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      setTimeoutId(null);
-    }
-  }, [onImageGenerated, timeoutId]);
+    setIsWaiting(false);
+  }, [onImageGenerated]);
 
   useEffect(() => {
     console.log('Setting up Supabase subscription');
@@ -65,6 +64,8 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
     setIsLoading(true);
     onImageGenerated(null);
 
+    const requestTimestamp = new Date().toISOString();
+
     try {
       console.log('Triggering image generation');
       const response = await fetch('/api/generate', {
@@ -79,6 +80,7 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
           steps,
           guidance,
           seed,
+          mode: generationMode,
         }),
       });
 
@@ -88,33 +90,69 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
 
       console.log('Image generation triggered successfully');
 
-      // Wait for a short period to allow the image to be generated
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds
-
-      // Fetch the latest image
-      const latestImage = await fetchLatestImage();
-      if (latestImage) {
-        console.log('Latest image fetched:', latestImage);
-        onImageGenerated(latestImage);
+      if (generationMode === 'online') {
+        setIsWaiting(true);
+        pollForImage(prompt, requestTimestamp);
       } else {
-        console.log('No image found after generation');
+        // Local mode logic remains unchanged
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        const latestImage = await fetchLatestImage();
+        if (latestImage) {
+          console.log('Latest image fetched:', latestImage);
+          onImageGenerated(latestImage);
+        } else {
+          console.log('No image found after generation');
+        }
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
-
     } catch (error) {
       console.error('Error generating image:', error);
       setIsLoading(false);
+      setIsWaiting(false);
     }
   };
 
-  const fetchLatestImage = async (): Promise<GeneratedImage | null> => {
-    const { data, error } = await supabase
+  const pollForImage = async (prompt: string, requestTimestamp: string) => {
+    const pollInterval = 10000; // 10 seconds
+    const maxAttempts = 12; // Try for 2 minutes (12 * 10 seconds)
+    let attempts = 0;
+
+    const checkForImage = async () => {
+      const latestImage = await fetchLatestImage(prompt, requestTimestamp);
+      if (latestImage) {
+        console.log('Latest image fetched:', latestImage);
+        onImageGenerated(latestImage);
+        setIsWaiting(false);
+        setIsLoading(false);
+      } else {
+        attempts++;
+        if (attempts < maxAttempts) {
+          console.log(`No image found. Retrying in ${pollInterval / 1000} seconds...`);
+          setTimeout(checkForImage, pollInterval);
+        } else {
+          console.log('No image found after maximum attempts');
+          setIsWaiting(false);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    setTimeout(checkForImage, pollInterval);
+  };
+
+  const fetchLatestImage = async (prompt?: string, requestTimestamp?: string): Promise<GeneratedImage | null> => {
+    let query = supabase
       .from('generated_images')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
+
+    if (prompt && requestTimestamp) {
+      // Online mode: fetch specific image
+      query = query.eq('prompt', prompt).gte('created_at', requestTimestamp);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       console.error('Error fetching latest image:', error);
@@ -205,8 +243,20 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? 'Generating...' : 'Generate'}
+      <div>
+        <Label>Generation Mode</Label>
+        <div className="flex items-center space-x-2">
+          <span>Local</span>
+          <Switch
+            checked={generationMode === 'online'}
+            onCheckedChange={(checked) => setGenerationMode(checked ? 'online' : 'local')}
+          />
+          <span>Online</span>
+        </div>
+      </div>
+
+      <Button type="submit" className="w-full" disabled={isLoading || isWaiting}>
+        {isLoading ? 'Generating...' : isWaiting ? 'Waiting for image...' : 'Generate'}
       </Button>
     </form>
   );
