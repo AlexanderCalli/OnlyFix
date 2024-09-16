@@ -2,14 +2,12 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   const body = await request.json();
-
   const apiUrl = process.env.API_URL || 'http://localhost:5000';
 
   try {
     if (body.mode === 'online') {
-      // For online mode, return immediately and trigger generation asynchronously
-      console.log('Triggering online image generation');
-      fetch(`${apiUrl}/generate`, {
+      // For online mode, ensure the request is sent to the Flask API
+      const flaskResponse = await fetch(`${apiUrl}/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -18,12 +16,16 @@ export async function POST(request: Request) {
           ...body,
           mode: body.mode
         }),
-      }).catch(error => console.error('Error triggering online image generation:', error));
+      });
 
-      return NextResponse.json({ message: 'Image generation started' });
+      if (!flaskResponse.ok) {
+        throw new Error(`Flask API error: ${flaskResponse.status}`);
+      }
+
+      // Return a success response to the client
+      return NextResponse.json({ message: 'Image generation started successfully' });
     } else {
-      // For local mode, wait for the image generation to complete
-      console.log('Triggering local image generation');
+      // Local mode logic remains unchanged
       const response = await fetch(`${apiUrl}/generate`, {
         method: 'POST',
         headers: {
