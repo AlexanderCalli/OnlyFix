@@ -26,18 +26,34 @@ export default function ExamplesSection() {
     }
 
     if (data) {
-      const newExamples = data.map(image => ({
-        id: image.id,
-        filename: image.filename,
-        prompt: image.prompt,
-        storage_path: image.storage_path,
-        width: image.width,
-        height: image.height,
-        created_at: image.created_at,
-        public_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${image.storage_path}`
+      const validImages = await Promise.all(data.map(async (image) => {
+        const { data: fileExists } = await supabase
+          .storage
+          .from('images')
+          .list(image.storage_path.split('/')[0], {
+            limit: 1,
+            offset: 0,
+            sortBy: { column: 'name', order: 'asc' },
+          });
+
+        if (fileExists && fileExists.length > 0) {
+          return {
+            id: image.id,
+            filename: image.filename,
+            prompt: image.prompt,
+            storage_path: image.storage_path,
+            width: image.width,
+            height: image.height,
+            created_at: image.created_at,
+            public_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/${image.storage_path}`
+          };
+        }
+        return null;
       }));
+
+      const newExamples = validImages.filter((image): image is GeneratedImage => image !== null);
       setExamples(prevExamples => [...prevExamples, ...newExamples]);
-      offsetRef.current += data.length;
+      offsetRef.current += newExamples.length;
     }
     setIsLoading(false);
   }, [isLoading]);
