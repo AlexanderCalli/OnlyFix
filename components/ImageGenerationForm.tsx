@@ -192,7 +192,7 @@ export default function ImageGenerationForm({ onImageGenerated }: ImageGeneratio
         <Label>Height: {height}px</Label>
         <Slider
           min={64}
-          max={1048}
+          max={2048}
           step={64}
           value={[height]}
           onValueChange={(value) => setHeight(value[0])}
